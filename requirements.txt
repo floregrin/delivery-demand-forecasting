@@ -1,0 +1,11 @@
+jupyter
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+xgboost
+prophet
+
+# The notebooks also use SoaM/muttlib for the original local-Prophet workflow.
+# Install those packages separately if available in your environment.
