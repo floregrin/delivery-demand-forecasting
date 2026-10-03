@@ -13,6 +13,14 @@ The project asks four questions:
 3. How stable are results across forecast windows and training-history choices?
 4. How can demand forecasts be translated into operational capacity decisions?
 
+## Demand patterns
+
+Demand is highly structured by both **hour of day** and **merchant segment**. FOOD demand is concentrated around lunch and late-evening peaks, while GOOD demand is substantially lower and flatter.
+
+![Average delivery requests by hour](images/Average%20Delivery%20Requests%20by%20Hour.png)
+
+This intraday structure motivates calendar features and strong seasonal baselines rather than treating observations as exchangeable rows.
+
 ## Modeling approach
 
 Three approaches are compared on common 168-hour evaluation windows:
@@ -22,6 +30,14 @@ Three approaches are compared on common 168-hour evaluation windows:
 - **Global XGBoost** — one model across all series using location/segment identifiers, calendar features, and only lags known throughout the full 7-day forecast horizon.
 
 A key design choice is avoiding short lags such as `lag_1` and `lag_24` in the direct 168-hour global forecast. Those values would not be observed for most timestamps at prediction time and would introduce leakage unless forecasts were generated recursively.
+
+### Example 7-day holdout
+
+The Rio Hub 8 FOOD series illustrates both the strong weekly/intraday structure and the challenge of reproducing peak magnitude.
+
+![Rio Hub 8 FOOD 168-hour holdout forecast](images/Rio%20Hub%208%20FOOD%20%E2%80%94%20168-hour%20holdout%20forecast.png)
+
+For this illustrative holdout, the seasonal baseline outperformed the local Prophet model. The portfolio-level comparison below therefore evaluates all approaches on identical rolling-origin windows rather than drawing conclusions from one series.
 
 ## Headline results
 
@@ -37,7 +53,9 @@ For FOOD demand, XGBoost achieved 37.3% wMAPE versus 43.0% for seasonal naive an
 
 ## Backtesting and training-window sensitivity
 
-Rolling backtests evaluate temporal stability and compare 4-, 6-, and 8-week Prophet training histories on common forecast periods.
+A single holdout can give a misleading picture of model quality. Rolling backtests therefore evaluate performance over multiple 7-day forecast windows and compare 4-, 6-, and 8-week Prophet training histories on common evaluation periods.
+
+![Training-window sensitivity across forecast windows](images/Training-Window%20Sensitivity%20%E2%80%94%207-Day%20Forecast%20Performance.png)
 
 | Training history | Mean wMAPE | Mean absolute bias |
 |---|---:|---:|
@@ -45,11 +63,21 @@ Rolling backtests evaluate temporal stability and compare 4-, 6-, and 8-week Pro
 | 6 weeks | 37.83% | 1.75 |
 | 8 weeks | **37.07%** | **1.48** |
 
-Longer histories improved both accuracy and bias stability.
+Longer histories improved both average accuracy and bias stability. The chart also shows meaningful variation across forecast windows, reinforcing the need for temporal backtesting rather than a single train/test split.
+
+## Error diagnostics
+
+Forecast error is not constant through time. Comparing MAE with median demand shows that difficult forecast windows are partly associated with changes in demand level and regime.
+
+![Forecast error versus demand level](images/Forecast%20Error%20vs%20Demand%20Level.png)
+
+This is operationally important: an overall average metric can conceal periods in which errors are larger exactly when demand—and therefore staffing exposure—is elevated.
 
 ## Operational extension
 
 The analysis also translates FOOD forecasts into a driver-capacity proxy. Historical out-of-sample residuals represent forecast uncertainty, while observed deliveries provide a productivity estimate. A simple expected-cost optimization illustrates the service/capacity trade-off under different shortage-cost assumptions.
+
+Increasing the shortage-cost assumption from 3× to 9× increased average modeled allocation from **4.01 to 5.88 drivers per hub-hour** and estimated demand fulfillment from **85.5% to 91.4%**, at the cost of higher excess capacity.
 
 This is intentionally an operational prototype rather than a production workforce optimizer: the public dataset observes active drivers, not the full scheduled workforce, and does not contain all labor, repositioning, or SLA constraints.
 
@@ -62,6 +90,8 @@ delivery-demand-forecasting/
 ├── .gitignore
 ├── data/
 │   └── README.md
+├── images/
+│   └── README figures
 └── notebooks/
     ├── 01_delivery_demand_forecasting.ipynb
     └── 02_backtesting_and_window_sensitivity.ipynb
